@@ -1,0 +1,70 @@
+"use server";
+
+import { createAdminClient } from "../appwrite";
+import { appwriteConfig } from "../appwrite/config";
+import { ID, Query } from "node-appwrite";
+import { parseStringify } from "../utils";
+
+
+const getUserByEmail = async (email: string) => {
+  const { databases } = await createAdminClient();
+  const result = await databases.listDocuments(
+    appwriteConfig.databaseId,
+    appwriteConfig.usersCollectionId,
+    [Query.equal("email", [email])]
+  );
+
+  return result.total > 0 ? result.documents[0] : null;
+};
+
+
+const handleError = (error: unknown, message: string) => {
+  console.log(error, message);
+  throw error;
+};
+
+// ✅ send email OTP
+const sendEmailOTP = async ({ email }: { email: string }) => {
+  const { account } = await createAdminClient();
+  try {
+    const session = await account.createEmailToken(ID.unique(), email);
+    return session.userId;
+  } catch (error) {
+    handleError(error, "Failed to send email OTP");
+  }
+};
+
+// ✅ create account
+export const createAccount = async ({
+  fullName,
+  email,
+}: {
+  fullName: string;
+  email: string;
+}) => {
+  const existingUser = await getUserByEmail(email);
+  if (existingUser) {
+    throw new Error("User already exists");
+  }
+
+  const accountId = await sendEmailOTP({ email });
+  if (!accountId) throw new Error("Failed to send an OTP"); // ✅ syntax ঠিক করা হলো
+
+  if (!existingUser) {
+    const { databases } = await createAdminClient();
+    await databases.createDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.usersCollectionId,
+      ID.unique(),
+      {
+        fullName,
+        email,
+        avatar:
+          "https://images.icon-icons.com/1378/PNG/512/avatardefault_92824.png",
+        accountId,
+      }
+    );
+    return parseStringify({ accountId });
+  }
+  return parseStringify({ accountId });
+};
