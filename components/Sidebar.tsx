@@ -75,7 +75,6 @@ const Sidebar = ({ fullName, email }: Props) => {
         height={418}
         className="w-full"
       />
-
       <div className="sidebar-user-info">
         <Image
           src={avatarPlaceholderUrl}
